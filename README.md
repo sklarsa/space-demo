@@ -1,9 +1,11 @@
 # QuestDB Mission Control
 
+QuestDB is the time-series database inside [OpenC3 COSMOS 7](https://openc3.com/).
+
 A 3D space display driven entirely by QuestDB SQL. It works like the taxi demo: real
 history is replayed as if it were happening live.
 
-- **Rockets:** 30 Hz webcast telemetry from 46 SpaceX launches ([shahar603/Telemetry-Data](https://github.com/shahar603/Telemetry-Data)).
+- **Rockets:** 30 Hz webcast telemetry from 46 of the 52 SpaceX launches between Dec 2015 and Mar 2019 ([shahar603/Telemetry-Data](https://github.com/shahar603/Telemetry-Data)), with their original dates from Launch Library 2 (`launches` table).
   One launch lifts off every 30 s, on a loop, so around 20 are in the air at once. Boosters that
   return to the launch site fly back to the pad.
 - **Satellites:** every active satellite from CelesTrak (~16k), propagated with SGP4 and

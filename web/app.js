@@ -176,6 +176,16 @@ function followUser(key) {
   renderFlights();
 }
 
+// Original launch dates live in QuestDB too (the replay re-times flights to now).
+const launchDates = {};
+const launchDate = (l) => launchDates[l] || "";
+async function loadLaunchDates() {
+  const rows = await q("original launch dates (once)", "SELECT launch, ts FROM launches");
+  for (const [l, ts] of rows) launchDates[l] = new Date(ts).toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" }).replace(" ", " '");
+  if (!rows.length) setTimeout(loadLaunchDates, 2000); // feeder not up yet
+  else for (const tr of document.querySelectorAll("#flight-rows tr")) tr.children[1].textContent = launchDate(tr.dataset.k.split("|")[0]);
+}
+loadLaunchDates().catch(() => setTimeout(loadLaunchDates, 2000));
 const flightRows = document.getElementById("flight-rows");
 const met = (s) => `T+${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 function renderFlights() {
@@ -189,15 +199,15 @@ function renderFlights() {
     if (!tr) {
       tr = document.createElement("tr");
       tr.dataset.k = key;
-      tr.innerHTML = `<td>${row.launch.slice(0, 17)}${row.stage === "1" ? " ⇣" : ""}</td><td class="n"></td><td class="phase"></td><td class="n"></td><td class="n"></td>`;
+      tr.innerHTML = `<td>${row.launch.slice(0, 15)}${row.stage === "1" ? " ⇣" : ""}</td><td class="d">${launchDate(row.launch)}</td><td class="n"></td><td class="phase"></td><td class="n"></td><td class="n"></td>`;
     }
     if (flightRows.children[i] !== tr) flightRows.insertBefore(tr, flightRows.children[i] || null);
     tr.className = key === follow ? "on" : "";
     const c = tr.children;
-    c[1].textContent = met(row.met);
-    c[2].textContent = (row.event || "").replace(/_/g, " ").toUpperCase().slice(0, 13);
-    c[3].textContent = `${(row.vel / 1000).toFixed(2)} km/s`;
-    c[4].textContent = `${row.alt.toFixed(0)} km`;
+    c[2].textContent = met(row.met);
+    c[3].textContent = (row.event || "").replace(/_/g, " ").toUpperCase().slice(0, 13);
+    c[4].textContent = `${(row.vel / 1000).toFixed(2)} km/s`;
+    c[5].textContent = `${row.alt.toFixed(0)} km`;
   });
   document.getElementById("s-flights").textContent = rockets.size;
 }
@@ -331,7 +341,7 @@ async function pollChart() {
   const r = follow && rockets.get(follow);
   if (!r) return;
   const { launch, stage } = r.row;
-  document.getElementById("chart-title").textContent = `${launch}${stage === "1" ? " booster" : ""}`;
+  document.getElementById("chart-title").textContent = `${launch}${stage === "1" ? " booster" : ""}${launchDate(launch) ? ` (flew ${launchDate(launch)})` : ""}`;
   const rows = await q("followed flight (materialized view)",
     `SELECT ts, velocity, altitude FROM rocket_telemetry_1s
 WHERE launch = '${launch.replace(/'/g, "''")}' AND stage = '${stage}'

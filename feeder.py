@@ -4,7 +4,7 @@ positions of every active satellite (1 Hz) into QuestDB over ILP.
 Like the NYC taxi demo: history replayed as if it were happening live. On start it
 backfills --backfill seconds of history so the timeline is scrubbable immediately.
 """
-import argparse, json, math, os, time
+import argparse, calendar, json, math, os, time
 from pathlib import Path
 
 import numpy as np
@@ -22,11 +22,14 @@ SCHEMA = """
 DROP MATERIALIZED VIEW IF EXISTS rocket_telemetry_1s;
 DROP TABLE IF EXISTS rocket_telemetry;
 DROP TABLE IF EXISTS events;
+DROP TABLE IF EXISTS launches;
 CREATE TABLE IF NOT EXISTS rocket_telemetry (
   ts TIMESTAMP, launch SYMBOL, stage SYMBOL, met DOUBLE,
   velocity DOUBLE, altitude DOUBLE, height DOUBLE, vz DOUBLE, vh DOUBLE, downrange DOUBLE,
   lat DOUBLE, lon DOUBLE, heading DOUBLE, pitch DOUBLE
 ) TIMESTAMP(ts) PARTITION BY HOUR TTL 1 DAY WAL;
+CREATE TABLE IF NOT EXISTS launches (ts TIMESTAMP, launch SYMBOL)
+  TIMESTAMP(ts) PARTITION BY YEAR WAL;
 CREATE TABLE IF NOT EXISTS events (ts TIMESTAMP, launch SYMBOL, stage SYMBOL, event SYMBOL)
   TIMESTAMP(ts) PARTITION BY DAY WAL;
 CREATE TABLE IF NOT EXISTS satellites (
@@ -204,6 +207,10 @@ def main():
     next_launch, active = 0, []  # active: [t0, flight_stage, row_idx, event_idx]
     next_sat = time.time()
     with Sender.from_conf(QDB_ILP) as sender:
+        # Original launch dates (Launch Library 2): the replay re-times them to now.
+        for launch, date in json.loads((DATA / "launch_dates.json").read_text()).items():
+            sender.row("launches", symbols={"launch": launch},
+                       at=TimestampMicros(calendar.timegm(time.strptime(date, "%Y-%m-%d")) * 1_000_000))
         for name, norad in zip(names, norads):
             sender.row("sat_catalog", symbols={"norad": norad}, columns={"name": name}, at=TimestampMicros(0))
         while True:

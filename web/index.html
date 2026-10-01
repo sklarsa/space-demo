@@ -12,16 +12,20 @@
   body { font: 13px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--fg); }
   .panel { position: absolute; background: var(--panel); border: 1px solid #1f2a3a; border-radius: 8px;
            padding: 10px 12px; backdrop-filter: blur(6px); }
-  #stats { top: 12px; left: 12px; width: 450px; box-sizing: border-box; }
+  #left { position: absolute; top: 12px; left: 12px; bottom: 110px; width: 520px; display: flex; flex-direction: column; gap: 8px; }
+  #left .panel { position: static; box-sizing: border-box; }
   #stats h1 { margin: 0 0 6px; font-size: 16px; letter-spacing: .04em; }
   #stats h1 b { color: var(--accent); }
   .kv { display: grid; grid-template-columns: auto 1fr; gap: 1px 14px; }
   .kv span:nth-child(odd) { color: var(--dim); }
   .kv span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; }
   #mode { margin-top: 6px; }
+  .sub { color: var(--dim); font-size: 11.5px; margin: -2px 0 6px; }
+  #mode + .sub { margin: 4px 0 0; }
+  td.d { color: var(--dim); }
   #mode.replay { color: #ffb347; }
   #mode button { font: inherit; margin-left: 8px; background: var(--accent); color: #fff; border: 0; border-radius: 4px; padding: 1px 8px; cursor: pointer; }
-  #flights { top: 175px; left: 12px; width: 450px; box-sizing: border-box; max-height: calc(100% - 330px); overflow: hidden auto; }
+  #flights { min-height: 0; overflow: hidden auto; }
   #flights table { width: 100%; border-collapse: collapse; }
   #flights td { padding: 2px 3px; white-space: nowrap; font-variant-numeric: tabular-nums; }
   #flights td.n { text-align: right; }
@@ -49,8 +53,10 @@
 </head>
 <body>
 <div id="globe"></div>
+<div id="left">
 <div id="stats" class="panel">
   <h1><b>QuestDB</b> Mission Control</h1>
+  <div class="sub">the time-series database inside OpenC3 COSMOS 7</div>
   <div class="kv">
     <span>rocket telemetry</span><span id="s-rock">–</span>
     <span>satellite positions</span><span id="s-sat">–</span>
@@ -59,8 +65,10 @@
     <span>satellites tracked</span><span id="s-sats">–</span>
   </div>
   <div id="mode">● LIVE</div>
+  <div class="sub">satellites: real positions now (CelesTrak + SGP4)<br>launches: 46 SpaceX flights 2015–19, webcast telemetry replayed</div>
 </div>
 <div id="flights" class="panel"><table><tbody id="flight-rows"></tbody></table></div>
+</div>
 <div id="chart" class="panel">
   <div><span id="chart-title">–</span> <span class="t">· last 10 min, materialized view</span></div>
   <canvas id="plot" width="720" height="260"></canvas>
