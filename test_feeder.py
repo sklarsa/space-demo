@@ -18,4 +18,5 @@ for f in flights.values():
     assert np.diff(f["t"]).max() < 0.05 and np.abs(np.diff(f["height"])).max() < 0.5, f"gap or jump in {f['launch']}"
 for f in flights.values():
     assert f["t"][0] == 0 and f["altitude"][0] < 1 and f["velocity"][0] < 100, f"{f['launch']} stage {f['stage']} does not start on the pad"
+assert [feeder.constellation(n) for n in ("NAVSTAR 43 (USA 132)", "STARLINK-1007", "ISS (ZARYA)")] == ["gps", "starlink", "other"]
 print("ok")

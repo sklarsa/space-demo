@@ -30,6 +30,12 @@
   .phase { color: var(--ok); }
   #chart { top: 12px; right: 12px; width: 360px; }
   #chart canvas { width: 100%; height: 130px; display: block; }
+  #legend { top: 230px; right: 12px; width: 360px; }
+  #legend .t { color: var(--dim); margin-bottom: 4px; }
+  #legend-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
+  #legend-rows div { display: flex; align-items: center; gap: 7px; }
+  #legend-rows i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  #legend-rows b { margin-left: auto; font-weight: normal; font-variant-numeric: tabular-nums; }
   #chart .t { color: var(--dim); }
   #sql { bottom: 40px; right: 12px; width: 560px; max-height: 45%; overflow: auto; }
   #sql .q { margin-bottom: 8px; }
@@ -60,6 +66,7 @@
   <canvas id="plot" width="720" height="260"></canvas>
   <div class="t"><span style="color:#b14aff">━ velocity</span> &nbsp; <span style="color:#3ddc97">━ altitude</span></div>
 </div>
+<div id="legend" class="panel"><div class="t">satellites by constellation · live</div><div id="legend-rows"></div></div>
 <div id="sql" class="panel"></div>
 <div id="help" class="panel">click a flight (list or 3D) to follow · <b>Esc</b> globe view · <b>F</b> follow each new launch · drag the timeline to replay</div>
 <script src="app.js"></script>

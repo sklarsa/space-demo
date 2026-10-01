@@ -157,11 +157,14 @@ def load_flights():
     return flights
 
 
+# Name prefix -> constellation (CelesTrak names, e.g. GPS satellites are "NAVSTAR nn").
+GROUPS = {"STARLINK": "starlink", "ONEWEB": "oneweb", "KUIPER": "kuiper", "IRIDIUM": "iridium",
+          "NAVSTAR": "gps", "GLOBALSTAR": "globalstar", "ORBCOMM": "orbcomm",
+          "FLOCK": "planet", "SKYSAT": "planet", "PELICAN": "planet", "LEMUR": "lemur"}
+
+
 def constellation(name):
-    for k in ("STARLINK", "ONEWEB", "KUIPER", "IRIDIUM", "GPS", "GLOBALSTAR", "ORBCOMM", "PLANET", "FLOCK", "LEMUR"):
-        if name.startswith(k):
-            return k.lower()
-    return "other"
+    return next((g for k, g in GROUPS.items() if name.startswith(k)), "other")
 
 
 def load_sats():

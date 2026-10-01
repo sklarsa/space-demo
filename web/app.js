@@ -27,7 +27,7 @@ viewer.camera.setView({ destination: C.Cartesian3.fromDegrees(-85, 25, 22e6) });
 // ---------- QuestDB ----------
 const sqlPanel = document.getElementById("sql");
 const sqlBoxes = {};
-const KW = /\b(SELECT|FROM|WHERE|BETWEEN|AND|LATEST ON|PARTITION BY|ASOF JOIN|ON|SAMPLE BY|UNION ALL|AS|ORDER BY|last|count|max)\b/g;
+const KW = /\b(SELECT|FROM|WHERE|BETWEEN|AND|LATEST ON|PARTITION BY|ASOF JOIN|ON|SAMPLE BY|UNION ALL|AS|ORDER BY|DESC|last|count|max)\b/g;
 async function q(label, sql) {
   const t0 = performance.now();
   const r = await fetch("/exec?timings=true&query=" + encodeURIComponent(sql));
@@ -253,7 +253,18 @@ SAMPLE BY 2s`);
 
 // ---------- satellites (LATEST ON over ~16k symbols) ----------
 const COLORS = { starlink: "#b14aff", oneweb: "#3ddc97", kuiper: "#ffd23f", iridium: "#4cc9f0", gps: "#ff5d8f",
-  globalstar: "#f77f00", orbcomm: "#90be6d", planet: "#e9c46a", flock: "#e9c46a", lemur: "#a8dadc", other: "#cfd8e6" };
+  globalstar: "#f77f00", orbcomm: "#90be6d", planet: "#e9c46a", lemur: "#a8dadc", other: "#cfd8e6" };
+const NAMES = { starlink: "Starlink", oneweb: "OneWeb", kuiper: "Kuiper", iridium: "Iridium", gps: "GPS",
+  globalstar: "Globalstar", orbcomm: "Orbcomm", planet: "Planet", lemur: "Spire Lemur", other: "Other" };
+async function pollLegend() {
+  const rows = await q("constellations (every 5 s)",
+    `SELECT constellation, count() n FROM (
+  SELECT constellation FROM satellites WHERE ${between(clock.currentTime, 3)}
+  LATEST ON ts PARTITION BY norad)
+ORDER BY n DESC`);
+  document.getElementById("legend-rows").innerHTML = rows.map(([g, n]) =>
+    `<div><i style="background:${COLORS[g] || COLORS.other}"></i>${NAMES[g] || g}<b>${n.toLocaleString()}</b></div>`).join("");
+}
 const satPoints = viewer.scene.primitives.add(new C.PointPrimitiveCollection());
 const sats = new Map();
 const iss = viewer.entities.add({
@@ -343,3 +354,4 @@ loop(pollTrails, 2000);
 loop(pollSats, 1000);
 loop(pollStats, 1000);
 loop(pollChart, 1000);
+loop(pollLegend, 5000);
