@@ -23,6 +23,13 @@ Needs Docker, Python 3, Node and a browser. Works on Linux and macOS.
 ```
 
 - QuestDB web console: http://localhost:9000
+
+### Exposing it publicly (e.g. `cloudflared tunnel --url http://localhost:8080`)
+
+Only `server.py` should be reachable from outside. It accepts `SELECT`/`WITH` queries only, gzips
+responses, and serves files from `web/` and Cesium's build only. QuestDB listens on localhost only,
+its HTTP API (and so the web console) is read-only, and queries time out after 5 s. The feeder creates
+its tables over the Postgres wire protocol (port 8812, also localhost-only).
 - Conference kiosk: `chromium --kiosk http://localhost:8080`
 - Check: `.venv/bin/python test_feeder.py`
 

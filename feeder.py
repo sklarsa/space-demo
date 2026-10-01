@@ -8,11 +8,12 @@ import argparse, calendar, json, math, os, time
 from pathlib import Path
 
 import numpy as np
-import requests
+import psycopg
 from questdb import Sender, TimestampMicros
 from sgp4.api import Satrec, SatrecArray, jday
 
-QDB_HTTP = os.environ.get("QDB_HTTP", "http://localhost:9000")
+# DDL goes over PG wire: QuestDB's HTTP API runs read-only (docker-compose.yml).
+QDB_PG = os.environ.get("QDB_PG", "host=localhost port=8812 user=admin password=quest dbname=qdb")
 QDB_ILP = os.environ.get("QDB_ILP", "tcp::addr=localhost:9009;protocol_version=2;")
 DATA = Path(__file__).parent / "data"
 R_EARTH = 6371.0
@@ -193,10 +194,9 @@ def main():
     ap.add_argument("--no-sats", action="store_true")
     args = ap.parse_args()
 
-    for stmt in filter(str.strip, SCHEMA.split(";")):
-        r = requests.get(f"{QDB_HTTP}/exec", params={"query": stmt}).json()
-        if "error" in r:
-            raise SystemExit(f"schema: {r['error']}")
+    with psycopg.connect(QDB_PG, autocommit=True) as db:
+        for stmt in filter(str.strip, SCHEMA.split(";")):
+            db.execute(stmt)
 
     flights = load_flights()
     names, norads, sat_arr = load_sats()
