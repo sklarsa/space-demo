@@ -68,16 +68,42 @@ def destination(lat0, lon0, az, d_km):
     return np.degrees(p2), (np.degrees(l2) + 540) % 360 - 180
 
 
-def load_flight(launch, stage, raw, events):
-    t = np.asarray(raw["time"], float)
-    v = np.asarray(raw["velocity"], float)
-    alt = np.asarray(raw["altitude"], float)
-    # End the flight at the first webcast cut (>5 s gap, usually the coast to a later burn) or
-    # OCR misread (>50 km jump, e.g. 999 -> 100), then resample to a steady 30 Hz so short
-    # dropouts don't look like the flight ended.
+def clean(raw):
+    """One webcast stream, ended at its first cut (>5 s gap, usually the coast to a later burn)
+    or OCR misread (>50 km jump, e.g. 999 -> 100)."""
+    t, v, alt = (np.asarray(raw[k], float) for k in ("time", "velocity", "altitude"))
     bad = np.flatnonzero((np.diff(t) > 5) | (np.abs(np.diff(alt)) > 50))
-    if len(bad):
-        t, v, alt = t[: bad[0] + 1], v[: bad[0] + 1], alt[: bad[0] + 1]
+    n = bad[0] + 1 if len(bad) else len(t)
+    return t[:n], v[:n], alt[:n]
+
+
+BRIDGE_MAX = 600  # s; longest gap (MECO -> webcast cuts back to this stage) we interpolate across
+
+
+def stage_track(own, other, events):
+    """One stage's track in T+ seconds. Stage files hold whatever the webcast showed: usually one
+    stream runs from liftoff and the other only starts when the camera cuts to that stage
+    (T+430..1500 s). Before MECO both stages are one vehicle, so a stage without its own liftoff
+    data flies the other stream until MECO, then its own (gap interpolated if short).
+    ponytail: the bridge is a straight line in speed/altitude; fine on screen, not physics."""
+    mine = clean(own) if own else None
+    if mine is not None and mine[0][0] < 1:
+        return mine
+    if not other:
+        return None
+    t, v, alt = clean(other)
+    m = t <= (events.get("meco") or 150)
+    if not m.any() or t[0] >= 1:
+        return None
+    parts = [(t[m], v[m], alt[m])]
+    if mine is not None and len(mine[0]) and mine[0][0] - t[m][-1] <= BRIDGE_MAX:
+        parts.append(mine)
+    return tuple(np.concatenate(x) for x in zip(*parts))
+
+
+def load_flight(launch, stage, t, v, alt, events):
+    # Resample to a steady 30 Hz: short dropouts don't look like the flight ended, and a bridged
+    # upper-stage gap becomes a straight-line interpolation.
     tt = np.arange(0, t[-1], 1 / 30)
     t, v, alt = tt, np.interp(tt, t, v), np.interp(tt, t, alt)
     # Webcast gives only speed + altitude. Derive vertical/horizontal split on a smoothed
@@ -117,11 +143,15 @@ def load_flights():
     flights = []
     for d in sorted((DATA / "launches").iterdir()):
         events = json.loads((d / "events.json").read_text())
+        raws = {st: json.loads((d / f"stage{st} raw.json").read_text()) for st in ("1", "2")
+                if (d / f"stage{st} raw.json").exists()}
         stages = []
-        for stage in ("1", "2"):
-            f = d / f"stage{stage} raw.json"
-            if f.exists():
-                stages.append(load_flight(d.name, stage, json.loads(f.read_text()), events))
+        for st, other in (("1", "2"), ("2", "1")):
+            if st not in raws:
+                continue  # no footage of this stage at all
+            track = stage_track(raws[st], raws.get(other), events)
+            if track is not None and len(track[0]) > 30:
+                stages.append(load_flight(d.name, st, *track, events))
         if stages:
             flights.append(stages)
     return flights

@@ -16,4 +16,6 @@ assert np.all(np.diff(s2["t"]) >= 0) and s2["downrange"][-1] > 500, "upper stage
 assert s2["pitch"][0] == 90 and all(e not in feeder.BOOSTER_EVENTS for _, e in s2["events"]), "upright on pad, no booster events"
 for f in flights.values():
     assert np.diff(f["t"]).max() < 0.05 and np.abs(np.diff(f["height"])).max() < 0.5, f"gap or jump in {f['launch']}"
+for f in flights.values():
+    assert f["t"][0] == 0 and f["altitude"][0] < 1 and f["velocity"][0] < 100, f"{f['launch']} stage {f['stage']} does not start on the pad"
 print("ok")

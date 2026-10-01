@@ -58,6 +58,11 @@ JOIN sat_catalog c ON (norad) ORDER BY s.alt DESC LIMIT 10;
 
 - The webcasts only give speed and altitude, so the ground track is reconstructed from a
   guessed launch azimuth per mission class (see `site()` in `feeder.py`).
+- Each webcast follows one stage at a time, so a stage's file often starts only when the camera
+  cuts to it (T+430–1500 s). Before MECO both stages share the data that starts at liftoff. After
+  that each stage uses its own; gaps up to 10 min are filled with a straight line, and anything
+  longer ends that stage at MECO. Short dropouts are filled at 30 Hz, and a flight ends at its
+  first long webcast cut or obvious misread.
 - Return-to-launch-site detection for boosters is a heuristic, and a few boosters (e.g. CRS-13) miss it.
 - `data/active.tle` is a snapshot. Refresh it before the conference:
   `curl -o data/active.tle 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle'`
