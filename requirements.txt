@@ -1,0 +1,4 @@
+questdb>=4
+numpy
+sgp4
+requests

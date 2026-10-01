@@ -1,0 +1,7 @@
+services:
+  questdb:
+    image: questdb/questdb:latest
+    ports: ["9000:9000", "9009:9009", "8812:8812"]
+    volumes: ["qdb:/var/lib/questdb"]
+volumes:
+  qdb:
