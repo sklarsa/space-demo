@@ -12,5 +12,10 @@ trap 'kill $(jobs -p) 2>/dev/null' EXIT
 sleep 2
 url=http://localhost:8080
 echo "demo: $url   questdb console: http://localhost:9000"
-if [ "$(uname)" = Darwin ]; then open "$url"; else xdg-open "$url" >/dev/null 2>&1 || true; fi
+if [ "$(uname)" = Darwin ]; then
+  caffeinate -dis -w $$ & # booth Mac: no display sleep / idle sleep while the demo runs
+  open "$url"
+else
+  xdg-open "$url" >/dev/null 2>&1 || true
+fi
 wait
