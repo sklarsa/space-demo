@@ -33,8 +33,39 @@ const scene = viewer.scene;
 // at full resolution, so text is still sharp.
 viewer.resolutionScale = Math.min(1, (HQ ? 2560 : 1920) / (innerWidth * devicePixelRatio));
 scene.postProcessStages.fxaa.enabled = !HQ;
+
+// Adaptive resolution: the booth laptop's GPU is unknown, and missing 60 Hz by a little looks worse
+// (alternating 16/33 ms frames = judder) than rendering the globe a bit softer. Decided on the median
+// frame time over 2 s, so one-off hitches (tiles loading mid-flight) don't count: median over 18 ms ->
+// 10% fewer pixels per side; 10 s with 90% of frames on time -> 5% more. Only the 3D view scales; the
+// HTML overlay stays sharp.
+const MAX_SCALE = viewer.resolutionScale, MIN_SCALE = 0.4;
+let frameT = 0, dts = [], lastAdjust = 0, goodWindows = 0;
+scene.postRender.addEventListener(() => {
+  const now = performance.now();
+  if (frameT) dts.push(now - frameT);
+  frameT = now;
+  if (now - lastAdjust < 2000 || dts.length < 20) return;
+  lastAdjust = now;
+  dts.sort((a, b) => a - b);
+  const median = dts[dts.length >> 1], p90 = dts[Math.floor(dts.length * 0.9)];
+  dts = [];
+  if (median > 18) {
+    viewer.resolutionScale = Math.max(MIN_SCALE, viewer.resolutionScale * 0.9);
+    goodWindows = 0;
+  } else if (p90 < 18 && ++goodWindows >= 5 && viewer.resolutionScale < MAX_SCALE) {
+    viewer.resolutionScale = Math.min(MAX_SCALE, viewer.resolutionScale * 1.05);
+    goodWindows = 0;
+  } else if (p90 >= 18) {
+    goodWindows = 0;
+  }
+});
+document.addEventListener("visibilitychange", () => { frameT = 0; }); // a hidden tab isn't a slow GPU
 scene.globe.enableLighting = true;
 scene.globe.dynamicAtmosphereLighting = true;
+// The director revisits the same places every loop: keep their tiles on the GPU instead of re-uploading
+// them (uploads during fly-overs were the remaining frame hitches).
+scene.globe.tileCacheSize = 600;
 const camera = viewer.camera;
 const clock = viewer.clock;
 const liveNow = () => C.JulianDate.now();

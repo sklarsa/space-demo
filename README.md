@@ -37,8 +37,9 @@ its tables over the Postgres wire protocol (port 8812, also localhost-only).
 Left alone, an automatic camera director cycles six shots, about 2 minutes per loop: the whole Earth
 with every satellite, a rocket ascent, the Starlink shell up close, stage separation, an ISS flyby,
 and the Cape Canaveral flight paths. A "live query" card shows the SQL behind each shot and its
-execution time. The UI scales with screen height, so a 1080p and a 4K TV look the same, and on 4K the
-globe renders at about 1440p so a laptop GPU keeps up.
+execution time. The UI scales with screen height, so a 1080p and a 4K TV look the same. The 3D view
+adapts its render resolution to hold 60 fps on whatever GPU it gets (text stays sharp): on a weak
+integrated GPU (Ryzen 9900X, 2 CUs) at 1440p it settles around half resolution, at 60 fps in every shot.
 
 Any click, scroll or keypress hands control to the visitor: the flight list and timeline appear, and
 clicking a flight (in the list or the 3D view) follows it. **F** restarts the director immediately;
