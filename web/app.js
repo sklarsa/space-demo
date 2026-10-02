@@ -34,13 +34,13 @@ const scene = viewer.scene;
 viewer.resolutionScale = Math.min(1, (HQ ? 2560 : 1920) / (innerWidth * devicePixelRatio));
 scene.postProcessStages.fxaa.enabled = !HQ;
 
-// Adaptive resolution: the booth laptop's GPU is unknown, and missing 60 Hz by a little looks worse
-// (alternating 16/33 ms frames = judder) than rendering the globe a bit softer. Decided on the median
-// frame time over 2 s, so one-off hitches (tiles loading mid-flight) don't count: median over 18 ms ->
-// 10% fewer pixels per side; 10 s with 90% of frames on time -> 5% more. Only the 3D view scales; the
-// HTML overlay stays sharp.
-const MAX_SCALE = viewer.resolutionScale, MIN_SCALE = 0.4;
-let frameT = 0, dts = [], lastAdjust = 0, goodWindows = 0;
+// Adaptive quality for an unknown booth GPU. Uneven pacing (frames flipping between 16 and 33 ms) is
+// what reads as jitter, and rendering the globe at half resolution reads as pixelated. So: if 60 fps
+// isn't held (median frame over 2 s above budget), first trim resolution down to 75% of full; if that's
+// still not enough, switch to a steady 30 fps at full resolution and only trim from there. Recover in
+// 5% steps after 10 s with 90% of frames on time. The HTML overlay is always full resolution.
+const MAX_SCALE = viewer.resolutionScale, FLOOR = MAX_SCALE * 0.75, MIN_SCALE = MAX_SCALE * 0.5;
+let frameT = 0, dts = [], lastAdjust = 0, goodWindows = 0, capped = !!viewer.targetFrameRate;
 scene.postRender.addEventListener(() => {
   const now = performance.now();
   if (frameT) dts.push(now - frameT);
@@ -48,15 +48,21 @@ scene.postRender.addEventListener(() => {
   if (now - lastAdjust < 2000 || dts.length < 20) return;
   lastAdjust = now;
   dts.sort((a, b) => a - b);
-  const median = dts[dts.length >> 1], p90 = dts[Math.floor(dts.length * 0.9)];
+  const median = dts[dts.length >> 1], p90 = dts[Math.floor(dts.length * 0.9)], budget = capped ? 36 : 18;
   dts = [];
-  if (median > 18) {
-    viewer.resolutionScale = Math.max(MIN_SCALE, viewer.resolutionScale * 0.9);
+  if (median > budget) {
     goodWindows = 0;
-  } else if (p90 < 18 && ++goodWindows >= 5 && viewer.resolutionScale < MAX_SCALE) {
+    if (!capped && viewer.resolutionScale <= FLOOR) {
+      capped = true; // can't hold 60 without going soft: steady 30 at full resolution instead
+      viewer.targetFrameRate = 30;
+      viewer.resolutionScale = MAX_SCALE;
+    } else {
+      viewer.resolutionScale = Math.max(capped ? MIN_SCALE : FLOOR, viewer.resolutionScale * 0.9);
+    }
+  } else if (p90 < budget && ++goodWindows >= 5 && viewer.resolutionScale < MAX_SCALE) {
     viewer.resolutionScale = Math.min(MAX_SCALE, viewer.resolutionScale * 1.05);
     goodWindows = 0;
-  } else if (p90 >= 18) {
+  } else if (p90 >= budget) {
     goodWindows = 0;
   }
 });
@@ -451,10 +457,11 @@ const SHOTS = {
   },
   ascent(exclude) {
     // Youngest upper stage that's clear of the pad and still climbing: the arc against Earth's curve.
-    const r = [...rockets.values()].filter((r) => alive(r) && r.row.stage === "2" && r.row.alt > 25 && r.row.alt < 250 && r !== exclude)
+    // Above ~60 km: lower down the camera looks across the ground, and Blue Marble (~2 km/px) smears.
+    const r = [...rockets.values()].filter((r) => alive(r) && r.row.stage === "2" && r.row.alt > 60 && r.row.alt < 300 && r !== exclude)
       .sort((a, b) => a.row.met - b.row.met)[0];
     if (!r) return null;
-    const h0 = deg(r.row.heading + 125), p = deg(-14), range = 30e3;
+    const h0 = deg(r.row.heading + 125), p = deg(-6), range = 70e3;
     return { secs: 22, feature: "rockets", subject: r, tag: "ASCENT",
       text: `${r.row.launch} · flew ${launchDate(r.row.launch)}`, valid: () => alive(r),
       pose: () => hprPose(ahead(rocketAt(r), velOf(r), FLY), h0, p, range),
