@@ -13,14 +13,16 @@ const deg = C.Math.toRadians;
 const geo = new C.GeographicTilingScheme();
 const tiles = (name, maximumLevel) =>
   new C.UrlTemplateImageryProvider({ url: `tiles/${name}/{z}/{x}/{y}.jpg`, tilingScheme: geo, maximumLevel });
-// Default is easy on the GPU (30 fps, FXAA, globe rendered at most ~1080p); ?hq = 60 fps, 4x MSAA, up to 1440p.
-const HQ = new URLSearchParams(location.search).has("hq");
+// Default: FXAA and the globe rendered at most ~1080p (cheap); ?hq = 4x MSAA, up to 1440p.
+// ?fps=30 caps the frame rate for a weak laptop (a cap judders on a 60 Hz screen, so it's opt-in).
+const params = new URLSearchParams(location.search);
+const HQ = params.has("hq");
 const viewer = new C.Viewer("globe", {
   baseLayer: new C.ImageryLayer(tiles("day", 5)), // NASA Blue Marble, served locally (no internet at the venue)
   baseLayerPicker: false, geocoder: false, homeButton: false, sceneModePicker: false,
   navigationHelpButton: false, animation: false, fullscreenButton: false, infoBox: false,
   selectionIndicator: false, timeline: true, shouldAnimate: true, msaaSamples: HQ ? 4 : 1,
-  targetFrameRate: HQ ? undefined : 30,
+  targetFrameRate: +params.get("fps") || undefined,
 });
 const night = viewer.imageryLayers.addImageryProvider(tiles("night", 4)); // NASA Black Marble city lights
 night.dayAlpha = 0;
@@ -190,6 +192,11 @@ const rocketAt = (r, dSec = 0) =>
 
 // ---------- trails (SAMPLE BY), fading with age ----------
 const trails = scene.primitives.add(new C.PolylineCollection());
+// Trails refresh every 2 s, so on their own they'd end behind the rocket and jump to catch up. A
+// two-point "tip" per rocket joins the trail's last point to the rocket every frame.
+const tips = scene.primitives.add(new C.PolylineCollection());
+const tipStart = new Map(); // rocket key -> last trail point
+const tipLines = new Map(); // rocket key -> polyline
 const TRAIL = { "1": C.Color.fromCssColorString("#9fd6ff"), "2": C.Color.fromCssColorString("#ff9a3c") };
 async function pollTrails() {
   const rows = await q("trails",
@@ -204,8 +211,10 @@ SAMPLE BY 2s`);
     paths.get(k).push(lon, lat, alt * 1000);
   }
   trails.removeAll();
+  tipStart.clear();
   for (const [k, flat] of paths) {
     const pts = C.Cartesian3.fromDegreesArrayHeights(flat);
+    tipStart.set(k, pts[pts.length - 1]);
     if (pts.length < 3) continue;
     const stage = k.slice(-1), N = 6;
     for (let i = 0; i < N; i++) { // oldest chunk faintest; chunks share endpoints so the line is continuous
@@ -218,6 +227,27 @@ SAMPLE BY 2s`);
     }
   }
 }
+
+const tipTime = new C.JulianDate();
+scene.preRender.addEventListener((sc, time) => {
+  C.JulianDate.addSeconds(time, -RENDER_DELAY, tipTime);
+  for (const [k, line] of tipLines) {
+    if (!rockets.has(k) || !tipStart.has(k)) { tips.remove(line); tipLines.delete(k); }
+  }
+  for (const [k, start] of tipStart) {
+    const r = rockets.get(k);
+    const end = r && r.entity.show && r.samples.getValue(tipTime);
+    let line = tipLines.get(k);
+    if (!end) { if (line) line.show = false; continue; }
+    if (!line) {
+      const stage = k.slice(-1);
+      line = tips.add({ id: k, width: px(stage === "1" ? 2 : 3), material: C.Material.fromType("Color", { color: TRAIL[stage].withAlpha(0.9) }) });
+      tipLines.set(k, line);
+    }
+    line.show = true;
+    line.positions = [start, end]; // same length every frame: updated in place, no rebuild
+  }
+});
 
 // ---------- satellites (LATEST ON over ~16k symbols), interpolated every frame ----------
 const COLORS = { starlink: "#b56cff", oneweb: "#3ddc97", kuiper: "#ffd23f", iridium: "#4cc9f0", gps: "#ff5d8f",
@@ -252,6 +282,7 @@ LATEST ON ts PARTITION BY norad`);
     s.b = new C.Cartesian3(x * 1000, y * 1000, z * 1000); s.tb = tsMs;
     if (!s.a) s.p.position = s.b;
   }
+  satsFresh = true;
   $("k-sats").textContent = rows.length.toLocaleString();
 }
 function satAt(s, ms, result) { // linear over ~1 s of orbit: metres of error
@@ -262,9 +293,15 @@ function satAt(s, ms, result) { // linear over ~1 s of orbit: metres of error
   return result;
 }
 const satScratch = new C.Cartesian3();
+let satsFresh = false; // a new sample arrived since the last far-away update
 scene.preRender.addEventListener((sc, time) => {
+  // From far away a satellite moves < 1 px/s, so smoothing it every frame is wasted CPU (the biggest
+  // per-frame cost here); just place the newest sample. Close up (LEO / ISS shots) interpolate.
+  const far = C.Cartographic.fromCartesian(camera.positionWC).height > 5e6;
+  if (far && !satsFresh) return;
+  satsFresh = false;
   const now = C.JulianDate.toDate(time).getTime();
-  for (const s of sats.values()) if (s.a) s.p.position = satAt(s, now, satScratch);
+  for (const s of sats.values()) if (s.a) s.p.position = far ? s.b : satAt(s, now, satScratch);
 });
 // The ISS model and the camera both evaluate at the render time; updating it in preRender would draw
 // the model a frame behind the camera (≈100 m at 7.7 km/s), which shows up as jitter in the ISS shot.
