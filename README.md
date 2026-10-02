@@ -31,6 +31,18 @@ responses, and serves files from `web/` and Cesium's build only. QuestDB listens
 its HTTP API (and so the web console) is read-only, and queries time out after 5 s. The feeder creates
 its tables over the Postgres wire protocol (port 8812, also localhost-only).
 - Conference kiosk: `chromium --kiosk http://localhost:8080`
+
+### Booth mode
+
+Left alone, an automatic camera director cycles six shots, about 2 minutes per loop: the whole Earth
+with every satellite, a rocket ascent, the Starlink shell up close, stage separation, an ISS flyby,
+and the Cape Canaveral flight paths. A "live query" card shows the SQL behind each shot and its
+execution time. The UI scales with screen height, so a 1080p and a 4K TV look the same, and on 4K the
+globe renders at about 1440p so a laptop GPU keeps up.
+
+Any click, scroll or keypress hands control to the visitor: the flight list and timeline appear, and
+clicking a flight (in the list or the 3D view) follows it. **F** restarts the director immediately;
+otherwise it resumes after 60 s idle. **Esc** goes to a globe view.
 - Check: `.venv/bin/python test_feeder.py`
 
 On startup the feeder backfills 30 minutes of history (`--backfill`), so the timeline can be
@@ -38,7 +50,7 @@ scrubbed straight away.
 
 ## What it shows about QuestDB
 
-Every panel runs live SQL. The bottom-right panel shows each query with its execution time.
+Every panel runs live SQL. In booth mode the live-query card shows the query behind the current shot.
 
 | On screen | QuestDB feature |
 |---|---|
@@ -82,4 +94,5 @@ JOIN sat_catalog c ON (norad) ORDER BY s.alt DESC LIMIT 10;
 - Launch telemetry: [shahar603/Telemetry-Data](https://github.com/shahar603/Telemetry-Data) (public domain), read from SpaceX webcasts using OCR
 - Satellite orbit data: [CelesTrak](https://celestrak.org/) active-satellite catalogue
 - 3D models: [NASA 3D Resources](https://github.com/nasa/NASA-3D-Resources) (Saturn V, ISS)
-- Globe: [CesiumJS](https://cesium.com/platform/cesiumjs/) with its bundled Natural Earth II imagery
+- Earth imagery: NASA Blue Marble (day) and Black Marble 2016 (night lights), public domain, tiled into `web/tiles/`
+- Globe: [CesiumJS](https://cesium.com/platform/cesiumjs/)

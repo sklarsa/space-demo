@@ -7,76 +7,126 @@
 <link rel="stylesheet" href="/cesium/Widgets/widgets.css">
 <script src="/cesium/Cesium.js"></script>
 <style>
-  :root { --fg: #e8eef7; --dim: #8a96a8; --accent: #b14aff; --ok: #3ddc97; --panel: rgba(8, 12, 20, .78); }
+  /* Sized off the screen height so a 1080p and a 4K booth TV look the same. */
+  html { font-size: calc(100vh / 66); }
+  :root { --fg: #eef2f8; --dim: #93a0b4; --accent: #c45cff; --ok: #3ddc97; --warm: #ffb05c;
+          --panel: rgba(6, 10, 18, .72); --line: rgba(160, 180, 220, .16); }
   html, body, #globe { margin: 0; height: 100%; overflow: hidden; background: #000; }
-  body { font: 13px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--fg); }
-  .panel { position: absolute; background: var(--panel); border: 1px solid #1f2a3a; border-radius: 8px;
-           padding: 10px 12px; backdrop-filter: blur(6px); }
-  #left { position: absolute; top: 12px; left: 12px; bottom: 110px; width: 520px; display: flex; flex-direction: column; gap: 8px; }
-  #left .panel { position: static; box-sizing: border-box; }
-  #stats h1 { margin: 0 0 6px; font-size: 16px; letter-spacing: .04em; }
-  #stats h1 b { color: var(--accent); }
-  .kv { display: grid; grid-template-columns: auto 1fr; gap: 1px 14px; }
-  .kv span:nth-child(odd) { color: var(--dim); }
-  .kv span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; }
-  #mode { margin-top: 6px; }
-  .sub { color: var(--dim); font-size: 11.5px; margin: -2px 0 6px; }
-  #mode + .sub { margin: 4px 0 0; }
-  td.d { color: var(--dim); }
-  #mode.replay { color: #ffb347; }
-  #mode button { font: inherit; margin-left: 8px; background: var(--accent); color: #fff; border: 0; border-radius: 4px; padding: 1px 8px; cursor: pointer; }
-  #flights { min-height: 0; overflow: hidden auto; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         color: var(--fg); -webkit-font-smoothing: antialiased; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .panel { position: absolute; background: var(--panel); border: 1px solid var(--line); border-radius: .8rem;
+           padding: 1rem 1.2rem; backdrop-filter: blur(8px); box-sizing: border-box; }
+  .cap { color: var(--dim); font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  #brand { top: 1.4rem; left: 1.6rem; padding: .9rem 1.3rem 1rem; }
+  #brand .logo { font-size: 1.15rem; font-weight: 700; letter-spacing: .14em; color: var(--accent); }
+  #brand h1 { margin: .1rem 0 .2rem; font-size: 2.6rem; font-weight: 650; letter-spacing: -.01em; }
+  #brand .sub { color: var(--dim); font-size: 1rem; }
+  #live { margin-top: .7rem; font-size: .95rem; font-weight: 600; color: var(--ok); }
+  #live.replay { color: var(--warm); }
+  #live button { font: inherit; margin-left: .6rem; background: var(--accent); color: #fff; border: 0; border-radius: .3rem; padding: .1rem .6rem; cursor: pointer; }
+  #live::before { content: ""; display: inline-block; width: .6rem; height: .6rem; border-radius: 50%; background: currentColor;
+                  margin-right: .5rem; vertical-align: .05rem; animation: pulse 2s infinite; }
+  @keyframes pulse { 50% { opacity: .25; } }
+
+  #kpis { top: 1.4rem; right: 1.6rem; display: flex; gap: .8rem; padding: 0; background: none; border: 0; backdrop-filter: none; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: .8rem; padding: .8rem 1.1rem; min-width: 9.5rem; backdrop-filter: blur(8px); }
+  .kpi b { display: block; font-size: 2.2rem; font-weight: 650; line-height: 1.1; }
+  .kpi b small { font-size: 1rem; font-weight: 500; color: var(--dim); margin-left: .2rem; }
+
+  #legend { top: 7.6rem; right: 1.6rem; padding: .7rem 1rem; }
+  #legend-rows { display: grid; grid-template-columns: repeat(5, auto); gap: .3rem 1.1rem; font-size: .85rem; margin-top: .35rem; }
+  #legend-rows div { display: flex; align-items: center; gap: .4rem; white-space: nowrap; }
+  #legend-rows i { width: .6rem; height: .6rem; border-radius: 50%; flex: none; }
+  #legend-rows b { font-weight: 500; color: var(--dim); }
+
+  #scene { top: 12.6rem; left: 1.6rem; padding: .45rem 1.1rem; border-radius: 2rem; font-size: 1.05rem;
+           max-width: 40rem; transition: opacity .6s; }
+  #scene b { color: var(--accent); font-weight: 650; margin-right: .5rem; }
+
+  #query { left: 1.6rem; bottom: 3.2rem; width: 44rem; transition: opacity .6s; }
+  #query .head { display: flex; align-items: baseline; gap: 1rem; }
+  #query .feature { font-size: 1.5rem; font-weight: 650; color: var(--accent); }
+  #query .ms { margin-left: auto; font-size: 2rem; font-weight: 650; color: var(--ok); }
+  #query .ms small { font-size: .9rem; color: var(--dim); font-weight: 500; margin-left: .3rem; }
+  #query .what { color: var(--fg); font-size: 1.05rem; margin: .3rem 0 .7rem; opacity: .9; }
+  #query pre { margin: 0; font-size: .95rem; line-height: 1.45; white-space: pre-wrap; color: #d6deeb;
+               border-top: 1px solid var(--line); padding-top: .7rem; }
+  .kw { color: var(--accent); font-weight: 600; }
+
+  #flight { right: 1.6rem; bottom: 3.2rem; width: 30rem; transition: opacity .6s; }
+  #flight .name { font-size: 1.7rem; font-weight: 650; }
+  #flight .flew { color: var(--dim); font-size: 1rem; margin-left: .4rem; font-weight: 500; }
+  #flight .phase { display: inline-block; margin: .4rem 0 .6rem; padding: .2rem .7rem; border-radius: 2rem; font-size: .95rem; font-weight: 650;
+                   background: rgba(61, 220, 151, .16); color: var(--ok); letter-spacing: .05em; }
+  #flight .stats { display: flex; gap: 1.6rem; }
+  #flight .stats b { display: block; font-size: 2rem; font-weight: 650; line-height: 1.1; }
+  #flight .stats b small { font-size: .95rem; color: var(--dim); font-weight: 500; margin-left: .2rem; }
+  #flight canvas { width: 100%; height: 5.5rem; display: block; margin-top: .7rem; }
+  #flight .src { color: var(--dim); font-size: .75rem; margin-top: .3rem; }
+
+  #footer { left: 0; right: 0; bottom: .9rem; text-align: center; color: var(--dim); font-size: .8rem; position: absolute; text-shadow: 0 0 .6rem #000; }
+  .hide { opacity: 0 !important; pointer-events: none; }
+
+  /* Details (shown while someone is using the mouse): flight list + timeline */
+  #flights { top: 12.6rem; left: 1.6rem; width: 38rem; max-height: calc(100% - 37rem); overflow: hidden auto; font-size: .9rem; padding: .5rem .6rem; }
   #flights table { width: 100%; border-collapse: collapse; }
-  #flights td { padding: 2px 3px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  #flights td.n { text-align: right; }
+  #flights td { padding: .15rem .3rem; white-space: nowrap; }
+  #flights td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  #flights td.d { color: var(--dim); }
+  #flights td.p { color: var(--ok); font-size: .8rem; }
   #flights tr { cursor: pointer; }
-  #flights tr:hover, #flights tr.on { background: rgba(177, 74, 255, .25); }
-  .phase { color: var(--ok); }
-  #chart { top: 12px; right: 12px; width: 360px; }
-  #chart canvas { width: 100%; height: 130px; display: block; }
-  #legend { top: 230px; right: 12px; width: 360px; }
-  #legend .t { color: var(--dim); margin-bottom: 4px; }
-  #legend-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
-  #legend-rows div { display: flex; align-items: center; gap: 7px; }
-  #legend-rows i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-  #legend-rows b { margin-left: auto; font-weight: normal; font-variant-numeric: tabular-nums; }
-  #chart .t { color: var(--dim); }
-  #sql { bottom: 40px; right: 12px; width: 560px; max-height: 45%; overflow: auto; }
-  #sql .q { margin-bottom: 8px; }
-  #sql .h { color: var(--dim); }
-  #sql .h b { color: var(--ok); font-weight: normal; }
-  #sql pre { margin: 2px 0 0; white-space: pre-wrap; color: #cfd8e6; font-size: 11.5px; }
-  .kw { color: var(--accent); }
-  #help { bottom: 40px; left: 12px; color: var(--dim); font-size: 11.5px; }
+  #flights tr:hover, #flights tr.on { background: rgba(196, 92, 255, .25); }
+  body:not(.details) #flights, body:not(.details) .cesium-viewer-timelineContainer { display: none; }
+  body.details #footer { bottom: 2.6rem; }
   .cesium-viewer-bottom { display: none; }
 </style>
 </head>
 <body>
 <div id="globe"></div>
-<div id="left">
-<div id="stats" class="panel">
-  <h1><b>QuestDB</b> Mission Control</h1>
+
+<div id="brand" class="panel">
+  <div class="logo">QUESTDB</div>
+  <h1>Mission Control</h1>
   <div class="sub">the time-series database inside OpenC3 COSMOS 7</div>
-  <div class="kv">
-    <span>rocket telemetry</span><span id="s-rock">–</span>
-    <span>satellite positions</span><span id="s-sat">–</span>
-    <span>rows stored</span><span id="s-total">–</span>
-    <span>flights in the air</span><span id="s-flights">–</span>
-    <span>satellites tracked</span><span id="s-sats">–</span>
+  <div id="live">LIVE</div>
+</div>
+
+<div id="scene" class="panel hide"><b id="scene-tag"></b><span id="scene-text"></span></div>
+
+<div id="kpis" class="panel">
+  <div class="kpi"><div class="cap">ingesting</div><b class="num" id="k-rate">–</b></div>
+  <div class="kpi"><div class="cap">rows stored</div><b class="num" id="k-total">–</b></div>
+  <div class="kpi"><div class="cap">satellites</div><b class="num" id="k-sats">–</b></div>
+  <div class="kpi"><div class="cap">rockets in flight</div><b class="num" id="k-rockets">–</b></div>
+</div>
+<div id="legend" class="panel"><div class="cap">satellites by constellation</div><div id="legend-rows"></div></div>
+
+<div id="query" class="panel hide">
+  <div class="head"><span class="cap">live query</span><span class="feature" id="q-feature"></span>
+    <span class="ms num" id="q-ms"></span></div>
+  <div class="what" id="q-what"></div>
+  <pre class="mono" id="q-sql"></pre>
+</div>
+
+<div id="flight" class="panel hide">
+  <div><span class="name" id="f-name"></span><span class="flew" id="f-flew"></span></div>
+  <div class="phase" id="f-phase"></div>
+  <div class="stats">
+    <div><div class="cap">T+</div><b class="num" id="f-met"></b></div>
+    <div><div class="cap">velocity</div><b class="num" id="f-vel"></b></div>
+    <div><div class="cap">altitude</div><b class="num" id="f-alt"></b></div>
   </div>
-  <div id="mode">● LIVE</div>
-  <div class="sub">satellites: real positions now (CelesTrak + SGP4)<br>launches: 46 SpaceX flights 2015–19, webcast telemetry replayed</div>
+  <canvas id="plot"></canvas>
+  <div class="src"><span style="color:#c45cff">━ velocity</span> &nbsp;<span style="color:#3ddc97">━ altitude</span> &nbsp;· last 10 min from a materialized view</div>
 </div>
+
 <div id="flights" class="panel"><table><tbody id="flight-rows"></tbody></table></div>
-</div>
-<div id="chart" class="panel">
-  <div><span id="chart-title">–</span> <span class="t">· last 10 min, materialized view</span></div>
-  <canvas id="plot" width="720" height="260"></canvas>
-  <div class="t"><span style="color:#b14aff">━ velocity</span> &nbsp; <span style="color:#3ddc97">━ altitude</span></div>
-</div>
-<div id="legend" class="panel"><div class="t">satellites by constellation · live</div><div id="legend-rows"></div></div>
-<div id="sql" class="panel"></div>
-<div id="help" class="panel">click a flight (list or 3D) to follow · <b>Esc</b> globe view · <b>F</b> follow each new launch · drag the timeline to replay</div>
+
+<div id="footer">Satellites: real positions right now (CelesTrak + SGP4) · Launches: 46 SpaceX flights 2015–19, webcast telemetry replayed as live ·
+  Every number and every object on screen comes from a live QuestDB query · Imagery: NASA Blue Marble &amp; Black Marble</div>
 <script src="app.js"></script>
 </body>
 </html>
