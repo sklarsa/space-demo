@@ -30,7 +30,7 @@ Only `server.py` should be reachable from outside. It accepts `SELECT`/`WITH` qu
 responses, and serves files from `web/` and Cesium's build only. QuestDB listens on localhost only,
 its HTTP API (and so the web console) is read-only, and queries time out after 5 s. The feeder creates
 its tables over the Postgres wire protocol (port 8812, also localhost-only).
-- Conference kiosk: `chromium --kiosk http://localhost:8080`
+- Conference kiosk: `chromium --kiosk http://localhost:8080` (add `?hq` for 60 fps and 4x MSAA if the GPU can take it; the default is 30 fps + FXAA)
 
 ### Booth mode
 

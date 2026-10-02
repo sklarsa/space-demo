@@ -13,20 +13,24 @@ const deg = C.Math.toRadians;
 const geo = new C.GeographicTilingScheme();
 const tiles = (name, maximumLevel) =>
   new C.UrlTemplateImageryProvider({ url: `tiles/${name}/{z}/{x}/{y}.jpg`, tilingScheme: geo, maximumLevel });
+// Default is easy on the GPU (30 fps, FXAA, globe rendered at most ~1080p); ?hq = 60 fps, 4x MSAA, up to 1440p.
+const HQ = new URLSearchParams(location.search).has("hq");
 const viewer = new C.Viewer("globe", {
   baseLayer: new C.ImageryLayer(tiles("day", 5)), // NASA Blue Marble, served locally (no internet at the venue)
   baseLayerPicker: false, geocoder: false, homeButton: false, sceneModePicker: false,
   navigationHelpButton: false, animation: false, fullscreenButton: false, infoBox: false,
-  selectionIndicator: false, timeline: true, shouldAnimate: true, msaaSamples: 4,
+  selectionIndicator: false, timeline: true, shouldAnimate: true, msaaSamples: HQ ? 4 : 1,
+  targetFrameRate: HQ ? undefined : 30,
 });
 const night = viewer.imageryLayers.addImageryProvider(tiles("night", 4)); // NASA Black Marble city lights
 night.dayAlpha = 0;
 night.nightAlpha = 1;
 night.brightness = 1.6;
 const scene = viewer.scene;
-// A laptop GPU driving a 4K TV: render the globe at ~1440p and let it upscale. The HTML overlay stays
+// A laptop GPU driving a 4K TV: render the globe smaller and let it upscale. The HTML overlay stays
 // at full resolution, so text is still sharp.
-viewer.resolutionScale = Math.min(1, 2560 / (innerWidth * devicePixelRatio));
+viewer.resolutionScale = Math.min(1, (HQ ? 2560 : 1920) / (innerWidth * devicePixelRatio));
+scene.postProcessStages.fxaa.enabled = !HQ;
 scene.globe.enableLighting = true;
 scene.globe.dynamicAtmosphereLighting = true;
 const camera = viewer.camera;
@@ -496,7 +500,29 @@ function showCards() {
   }
   renderCards();
 }
+// Every query the page runs, with how often, its QuestDB execution time and row count.
+const QUERIES = [ // label, name, feature, runs per second
+  ["rockets", "Rocket state", "LATEST ON + ASOF JOIN", 10], ["satellites", "Satellite positions", "LATEST ON", 1],
+  ["rate", "Ingest rate", "count() per whole second", 1], ["total", "Rows stored", "count()", 1],
+  ["flight", "Featured flight", "materialized view", 1], ["trails", "Flight paths", "SAMPLE BY", 0.5],
+  ["constellations", "Constellations", "GROUP BY over LATEST ON", 0.2], ["rollup", "Top speeds", "materialized view", 0.2],
+  ["iss", "ISS altitude", "SAMPLE BY, one symbol", 0.1],
+];
+$("q-rate").textContent = `${Math.round(QUERIES.reduce((n, x) => n + x[3], 0))} queries/s`;
+function renderQueries() {
+  const featured = directorOn && shot && shot.feature, details = document.body.classList.contains("details");
+  $("q-rows").innerHTML = QUERIES.map(([label, name, feature, hz]) => {
+    const lq = lastQ[label];
+    if (!lq) return "";
+    const ms = lq.ms < 10 ? lq.ms.toFixed(1) : Math.round(lq.ms);
+    return `<div class="qr${label === featured ? " on" : ""}"><span>${name}<i>${feature}</i></span>` +
+      `<span class="num">${hz >= 1 ? `${hz}/s` : `every ${Math.round(1 / hz)} s`}</span><span class="num ms">${ms} ms</span>` +
+      `<span class="num">${lq.rows.toLocaleString()} rows</span>` +
+      (details ? `<pre class="mono">${esc(lq.sql).replace(KW, '<span class="kw">$1</span>')}</pre>` : "") + "</div>";
+  }).join("");
+}
 function renderCards() {
+  renderQueries();
   const s = directorOn ? shot : null;
   if (s) {
     const [feature, what] = FEATURES[s.feature], lq = lastQ[s.feature];
