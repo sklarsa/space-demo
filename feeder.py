@@ -12,7 +12,7 @@ import psycopg
 from questdb import Sender, TimestampMicros
 from sgp4.api import Satrec, SatrecArray, jday
 
-# DDL goes over PG wire: QuestDB's HTTP API runs read-only (docker-compose.yml).
+# DDL goes over PG wire: QuestDB's HTTP API runs read-only (start.sh).
 QDB_PG = os.environ.get("QDB_PG", "host=localhost port=8812 user=admin password=quest dbname=qdb")
 QDB_ILP = os.environ.get("QDB_ILP", "tcp::addr=localhost:9009;protocol_version=2;")
 DATA = Path(__file__).parent / "data"

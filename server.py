@@ -1,7 +1,7 @@
 """Serves web/ and Cesium, and proxies read-only SQL to QuestDB (QuestDB sends no CORS headers).
 
 Safe to expose (e.g. behind a Cloudflare tunnel): only SELECT/WITH queries are forwarded, QuestDB's
-HTTP API is read-only and only listens on localhost (docker-compose.yml), and files are only
+HTTP API is read-only and only listens on localhost (start.sh), and files are only
 served from web/ and Cesium's build directory.
 """
 import gzip, os, re, urllib.error, urllib.parse, urllib.request

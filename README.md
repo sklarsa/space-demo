@@ -15,10 +15,10 @@ history is replayed as if it were happening live.
 
 ## Run
 
-Needs Docker, Python 3, Node and a browser. Works on Linux and macOS.
+Needs Docker or Podman, Python 3, Node and a browser. Works on Linux and macOS (on a Mac with Podman, `start.sh` creates and starts the Podman VM if needed).
 
 ```sh
-./start.sh                # QuestDB in Docker + feeder + web server, then opens http://localhost:8080
+./start.sh                # QuestDB container + feeder + web server, then opens http://localhost:8080
 ./start.sh --spacing 15   # busier sky
 ```
 
@@ -27,7 +27,7 @@ Needs Docker, Python 3, Node and a browser. Works on Linux and macOS.
 ### Exposing it publicly (e.g. `cloudflared tunnel --url http://localhost:8080`)
 
 Only `server.py` should be reachable from outside. It accepts `SELECT`/`WITH` queries only, gzips
-responses, and serves files from `web/` and Cesium's build only. QuestDB listens on localhost only,
+responses, and serves files from `web/` and Cesium's build only. QuestDB (started by `start.sh`) listens on localhost only,
 its HTTP API (and so the web console) is read-only, and queries time out after 5 s. The feeder creates
 its tables over the Postgres wire protocol (port 8812, also localhost-only).
 - Conference kiosk: `chromium --kiosk http://localhost:8080` (default: 60 fps, FXAA, globe rendered at ≤1080p; `?hq` adds 4x MSAA and ≤1440p; `?fps=30` caps the frame rate for a weak laptop)
